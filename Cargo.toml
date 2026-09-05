@@ -1,0 +1,32 @@
+[package]
+name = "unirate-rocket"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+authors = ["Unirate Team"]
+description = "Rocket integration for the UniRate API — mount currency exchange rate, conversion, and VAT endpoints in your Rocket app."
+homepage = "https://github.com/UniRate-API/unirate-rocket"
+repository = "https://github.com/UniRate-API/unirate-rocket"
+documentation = "https://docs.rs/unirate-rocket"
+readme = "README.md"
+license = "MIT"
+keywords = ["unirate", "rocket", "rocket-rs", "currency", "exchange-rates"]
+categories = ["web-programming", "api-bindings"]
+
+[dependencies]
+rocket = { version = "0.5.1", features = ["json"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+unirate-api = "0.1.0"
+# rustls-tls + no default features guarantees no native-tls/openssl and no HTTP/3
+# (quinn) in the tree — we don't use reqwest directly, this just fixes the TLS
+# backend explicitly. Caret range so consumers resolve fresh, patched transitives.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
+
+[[example]]
+name = "server"
+path = "examples/server.rs"

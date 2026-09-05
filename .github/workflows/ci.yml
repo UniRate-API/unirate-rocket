@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # `stable` for currency; `1.88` is the declared MSRV and matches the
+        # committed Cargo.lock (patched dependency tree — see Cargo.toml). The
+        # icu 2.x chain pulled transitively via url/reqwest requires rustc 1.88.
+        rust: [stable, "1.88"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: clippy, rustfmt
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test
+
+  audit:
+    # Fails the build if a dependency in the committed Cargo.lock picks up a
+    # RustSec advisory. Keeps the tree from silently rotting.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit
+        # RUSTSEC-2026-0258 (h2 0.3.27 unbounded empty DATA frames — LOW severity,
+        # HTTP/2 server-side DoS) is pulled transitively by Rocket 0.5.1's hyper
+        # 0.14 (rocket -> rocket_http -> hyper 0.14 -> h2 0.3). There is no fixed
+        # 0.3.x release (fix is h2 >=0.4.16, which needs hyper 1.x) and no Rocket
+        # release past 0.5.1, so EVERY Rocket 0.5 app carries this identical
+        # transitive. This crate is a library (fairing + route handlers) and does
+        # not run the HTTP/2 server itself, so the path is unreachable through it;
+        # a consumer's own Rocket version governs their exposure. Revisit when
+        # Rocket ships a hyper-1.x release.
+        run: cargo audit --ignore RUSTSEC-2026-0258
